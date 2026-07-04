@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0C0F13" />
+  <title>RepScore — Camera rep counter &amp; form score</title>
+  <meta name="description" content="Count reps and score movement form for squats, push-ups, pull-ups and dumbbell curls using your camera. Runs fully in the browser with MediaPipe Pose." />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders:opsz,wght@10..72,500;10..72,800;10..72,900&family=Archivo:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body data-exercise="squat">
+
+  <div class="bg-stripes" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <h1>Rep<em>Score</em></h1>
+    </div>
+    <p class="tagline">On-device pose AI<br />nothing leaves your phone</p>
+  </header>
+
+  <nav class="exercise-picker" aria-label="Choose exercise">
+    <button class="card is-active" data-exercise="squat">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <line x1="12" y1="20" x2="52" y2="20"/>
+        <line x1="12" y1="14" x2="12" y2="26"/>
+        <line x1="52" y1="14" x2="52" y2="26"/>
+        <circle cx="32" cy="11" r="5"/>
+        <path d="M32 18 L32 33 M32 33 L22 42 L24 55 M32 33 L42 42 L40 55"/>
+      </svg>
+      <span class="card-name">Squat</span>
+      <span class="card-plate">25</span>
+    </button>
+    <button class="card" data-exercise="pushup">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <line x1="6" y1="56" x2="58" y2="56"/>
+        <circle cx="51" cy="37" r="5"/>
+        <path d="M10 52 L44 41 M44 41 L42 48 L47 55 M10 52 L14 55"/>
+      </svg>
+      <span class="card-name">Push-up</span>
+      <span class="card-plate">20</span>
+    </button>
+    <button class="card" data-exercise="pullup">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <line x1="10" y1="10" x2="54" y2="10"/>
+        <path d="M23 10 L27 21 M41 10 L37 21"/>
+        <circle cx="32" cy="19" r="5"/>
+        <path d="M32 25 L32 40 M32 40 L27 49 L31 56 M32 40 L37 49 L34 56"/>
+      </svg>
+      <span class="card-name">Pull-up</span>
+      <span class="card-plate">15</span>
+    </button>
+    <button class="card" data-exercise="curl">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="30" cy="11" r="5"/>
+        <path d="M30 17 L30 37 M30 37 L25 55 M30 37 L35 55 M30 22 L36 31 L45 22"/>
+        <circle cx="46" cy="20" r="4"/>
+      </svg>
+      <span class="card-name">Curl</span>
+      <span class="card-plate">10</span>
+    </button>
+  </nav>
+
+  <main class="stage-wrap">
+    <div class="stage" id="stage">
+      <video id="video" playsinline muted></video>
+      <canvas id="overlay"></canvas>
+      <div class="rep-flash" id="repFlash" aria-hidden="true"></div>
+
+      <!-- Rep counter inside a live range-of-motion ring -->
+      <div class="hud hud-reps" aria-live="polite">
+        <svg class="rom-ring" viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="ring-bg" cx="60" cy="60" r="52"/>
+          <circle class="ring-fg" id="romRing" cx="60" cy="60" r="52"/>
+        </svg>
+        <div class="rep-inner">
+          <span class="hud-label">Reps</span>
+          <span class="hud-value" id="repCount">0</span>
+        </div>
+      </div>
+
+      <div class="hud hud-score">
+        <div class="score-row">
+          <span class="hud-label">Last rep</span>
+          <span class="score-value" id="lastScore">—</span>
+        </div>
+        <div class="score-row">
+          <span class="hud-label">Session</span>
+          <span class="score-value score-value--avg" id="avgScore">—</span>
+        </div>
+      </div>
+
+      <div class="hud hud-phase">
+        <span class="phase-dot" aria-hidden="true"></span>
+        <span id="phaseText">Camera off</span>
+      </div>
+
+      <div class="stage-empty" id="stageEmpty">
+        <svg class="empty-figure" viewBox="0 0 64 64" aria-hidden="true">
+          <line x1="12" y1="20" x2="52" y2="20"/>
+          <line x1="12" y1="14" x2="12" y2="26"/>
+          <line x1="52" y1="14" x2="52" y2="26"/>
+          <circle cx="32" cy="11" r="5"/>
+          <path d="M32 18 L32 33 M32 33 L22 42 L24 55 M32 33 L42 42 L40 55"/>
+        </svg>
+        <p>Frame your whole body: side-on for squats and push-ups, front-on for pull-ups and curls.</p>
+        <button class="btn btn-primary" id="startBtn">Start camera</button>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn" id="flipBtn" disabled>Flip camera</button>
+      <button class="btn" id="resetBtn">Reset set</button>
+      <button class="btn btn-quiet" id="stopBtn" disabled>Stop</button>
+    </div>
+
+    <section class="coach" id="coachPanel">
+      <h2>Form notes</h2>
+      <ul id="coachList">
+        <li><span class="note-text">Pick a lift, start the camera, complete a rep. Every rep is scored 0–100 from depth and lockout.</span></li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>Built with <a href="https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker" rel="noopener">MediaPipe Pose Landmarker</a>. All processing happens in your browser.</p>
+  </footer>
+
+  <script type="module" src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    }
+  </script>
+</body>
+</html>
